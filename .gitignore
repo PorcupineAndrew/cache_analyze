@@ -1,0 +1,7 @@
+Session.vim
+bin/
+obj/
+doc/
+trace/
+.*
+!.gitignore
