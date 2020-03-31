@@ -13,6 +13,7 @@ private:
 
     int numHit;
     int numAccess;
+    int numPurge;
 
     cache_line_t *cacheLines = nullptr;
     lru_record_t *lruRecords = nullptr;
@@ -40,6 +41,7 @@ private:
     int purge(int index);
     unsigned int getLruRank(unsigned int buf, int idx) const;
     void updateLRU(int idx);
+    void updateTREE(int idx);
     void hit(int idx);
 public:
     Cache(int ts, int bs, int nw, cache_strategy_t st);

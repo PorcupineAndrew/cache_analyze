@@ -4,4 +4,6 @@ obj/
 doc/
 trace/
 .*
+cscope.*
+tags
 !.gitignore

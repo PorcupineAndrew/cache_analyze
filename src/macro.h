@@ -44,6 +44,12 @@
 #define WRITE_BACK_POS      1
 #define REPLACE_POS         2
 
+#define LEFT                0
+#define RIGHT               1 
+#define SETLEFT(x, pos) ((x) &= (~(1U << (pos))))
+#define SETRIGHT(x, pos) ((x) |= (1U << (pos)))
+#define ISLEFT(x, pos) ((((x) & (1U << (pos))) >> (pos)) == LEFT)
+
 #define GET_STRATEGY(replace, writeAssign, writeBack) \
     ((cache_strategy_t)(((replace) << REPLACE_POS)) | ((writeBack) << WRITE_BACK_POS) | ((writeAssign) << WRITE_ASSIGN_POS))
 

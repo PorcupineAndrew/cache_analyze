@@ -3,7 +3,7 @@
 
 Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) : 
     numBitTotoalSize(ts), numBitBlockSize(bs), numBitWay(nw), numBitGroup(ts-bs-nw),
-    numCacheLine(POWER2(ts-bs)), strategy(st), numHit(0), numAccess(0) {
+    numCacheLine(POWER2(ts-bs)), strategy(st), numHit(0), numAccess(0), numPurge(0) {
 
     cout << "Cache init\n"
          << "--------------------------------\n"
@@ -90,7 +90,8 @@ void Cache::read(addr_t addr) {
     }
     if (state != -2) {
         if (state >= 0) {
-            updateLRU(index+state);
+            if (isLRU()) updateLRU(index+state);
+            else if (isTREE()) updateTREE(index+state);
             updateCacheLine(index+state, addr);
         } else {
             int idx = purge(index);
@@ -174,11 +175,12 @@ void Cache::hit(int idx) {
     if (isLRU()) {
         updateLRU(idx);
     } else if (isTREE()) {
-        // TODO
+        updateTREE(idx);
     }
 }
 
 int Cache::purge(int index) {
+    this->numPurge += 1;
     if (isLRU()) {
         const int numWay = POWER2(this->numBitWay);
         unsigned int buf = 0;
@@ -186,6 +188,7 @@ int Cache::purge(int index) {
 
         int idx = -1, max = 0;
         for (int i = 0; i < numWay; i++) {
+            assert (cacheLineValid(index+i));
             int rank = getLruRank(buf, i);
             if (rank > max) {
                 max = rank;
@@ -193,13 +196,24 @@ int Cache::purge(int index) {
             }
         }
 
-        assert (max == numWay);
+        assert (max+1 == numWay);
         updateLRU(idx);
         return idx;
     } else if (isRAND()) {
         return index + rand() % POWER2(this->numBitWay);
     } else if (isTREE()) {
-        return 0;
+        const int numWay = POWER2(this->numBitWay), leafOffset = numWay - 1;
+        unsigned char buf = 0;
+        memcpy(&buf, &this->treeRecords[index >> this->numBitWay], sizeof(tree_record_t));
+
+        int node = 0;
+        while (node < leafOffset) {
+            node = (node << 1) + 1 + (ISLEFT(buf, node) ? LEFT : RIGHT);
+        }
+
+        int idx = node - leafOffset + index;
+        updateTREE(idx);
+        return idx;
     } else {
         cout << "Error on repalce" << endl;
         exit(0);
@@ -211,7 +225,7 @@ void Cache::updateLRU(int idx) {
     unsigned int buf = 0, mask = MASK(this->numBitWay);
     memcpy(&buf, &this->lruRecords[index >> this->numBitWay], sizeof(lru_record_t));
 
-    unsigned int upperRank = cacheLineValid(idx-index) ? 
+    unsigned int upperRank = cacheLineValid(idx) ? 
                             getLruRank(buf, idx-index) : (1U<<this->numBitWay);
 
     for (int i = 0; i < numWay; i++, mask <<= this->numBitWay) {
@@ -223,6 +237,7 @@ void Cache::updateLRU(int idx) {
             buf += (1U << (this->numBitWay * i));
         }
     }
+
     memcpy(&this->lruRecords[index >> this->numBitWay], &buf, sizeof(lru_record_t));
 }
 
@@ -232,8 +247,26 @@ unsigned int Cache::getLruRank(unsigned int buf, int i) const {
     return (buf & (mask << offset)) >> offset;
 }
 
+void Cache::updateTREE(int idx) {
+    const int index = (idx >> this->numBitWay) << this->numBitWay,
+            numWay = POWER2(this->numBitWay),
+            leafOffset = numWay - 1;
+    unsigned char buf = 0;
+    memcpy(&buf, &this->treeRecords[index >> this->numBitWay], sizeof(tree_record_t));
+
+    idx = idx - index + leafOffset;
+    do {
+        if ((idx-1)%2 == LEFT) SETRIGHT(buf, (idx-1)/2);
+        else SETLEFT(buf, (idx-1)/2);
+    } while ((idx=(idx-1)/2));
+
+    memcpy(&this->treeRecords[index >> this->numBitWay], &buf, sizeof(tree_record_t));
+}
+
 void Cache::print() {
     cout << "total access: " << this->numAccess << "\n"
          << "hit times   : " << this->numHit << "\n"
+         << "purge times : " << this->numPurge << "\n"
+         << "miss ratio  : " << 1.0 - (this->numHit + 0.0) / this->numAccess << "\n"
          << "--------------------------------" << endl;
 }

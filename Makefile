@@ -26,6 +26,6 @@ clean:
 
 tags: 
 	rm -f $(TAG)
-	find . -type f -name "*.[ch]" >cscope.files
+	find . -type f -regex ".*\.\(cpp\|h\)" >cscope.files
 	cscope -bq
 	ctags -L cscope.files --fields=+iaS --extra=+q
