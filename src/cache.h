@@ -1,6 +1,7 @@
 #ifndef _CACHE_H_
 #define _CACHE_H_
 #include "macro.h"
+#include "mem.h"
 
 class Cache {
 private:
@@ -47,8 +48,8 @@ public:
     Cache(int ts, int bs, int nw, cache_strategy_t st);
     ~Cache();
 
-    void write(addr_t addr);
-    void read(addr_t addr);
+    int write(addr_t addr);
+    int read(addr_t addr);
     void print();
 };
 

@@ -1,11 +1,10 @@
 #include "cache.h"
-#include <bitset>
 
 Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) : 
     numBitTotoalSize(ts), numBitBlockSize(bs), numBitWay(nw), numBitGroup(ts-bs-nw),
     numCacheLine(POWER2(ts-bs)), strategy(st), numHit(0), numAccess(0), numPurge(0) {
 
-    cout << "Cache init\n"
+    cerr << "Cache init\n"
          << "--------------------------------\n"
          << "total size  : " << POWER2(this->numBitTotoalSize) << "\n"
          << "block size  : " << POWER2(this->numBitBlockSize) << "\n"
@@ -15,7 +14,7 @@ Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) :
          << "write back  : " << isWriteBack() << "\n"
          << "write direct: " << isWriteDirect() << "\n"
          << "write assign: " << isWriteAssign() << "\n"
-         << "replace algo: " << (isLRU() ? "LRU" : (isRAND() ? "RAND" : "TREE"))<< "\n"
+         << "replace algo: " << (isLRU() ? "LRU" : (isRAND() ? "RAND" : "TREE")) << "\n"
          << "--------------------------------" << endl;
 
     this->cacheLines = new cache_line_t[this->numCacheLine];
@@ -30,7 +29,7 @@ Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) :
         memset(this->treeRecords, 0, POWER2(this->numBitGroup)*sizeof(tree_record_t));
     }
 
-    cout << "addr length : " << ADDR_BIT << "\n"
+    cerr << "addr length : " << ADDR_BIT << "\n"
          << "valid pos   : " << VALID_POS << "\n"
          << "dirt pos    : " << DIRT_POS << "\n"
          << "--------------------------------" << endl;
@@ -68,7 +67,7 @@ addr_t Cache::getCacheLineTag(int idx) {
     return SLICE(buf, 0, ADDR_BIT-offsetLen-indexLen);
 }
 
-void Cache::read(addr_t addr) {
+int Cache::read(addr_t addr) {
     this->numAccess += 1;
     const int& offsetLen = this->numBitBlockSize;
     const int& indexLen = this->numBitGroup;
@@ -98,9 +97,10 @@ void Cache::read(addr_t addr) {
             updateCacheLine(idx, addr);
         }
     }
+    return state == -2;
 }
 
-void Cache::write(addr_t addr) {
+int Cache::write(addr_t addr) {
     this->numAccess += 1;
     const int& offsetLen = this->numBitBlockSize;
     const int& indexLen = this->numBitGroup;
@@ -115,19 +115,25 @@ void Cache::write(addr_t addr) {
         if (cacheLineValid(index+i)) {
             if (getCacheLineTag(index+i) == tag) {
                 hit(index+i);
-                // setCacheLineDirty(index+i);
+                setCacheLineDirty(index+i);
                 state = -2;
                 break;
             }
         } else state = i;
     }
     if (state != -2) {
-        if (state >= 0) {
-            // updateCacheLine(state, addr);
-        } else {
-            // TODO
+        if (isWriteAssign()) {
+            if (state >= 0) {
+                if (isLRU()) updateLRU(index+state);
+                else if (isTREE()) updateTREE(index+state);
+                updateCacheLine(index+state, addr);
+            } else {
+                int idx = purge(index);
+                updateCacheLine(idx, addr);
+            }
         }
     }
+    return state == -2;
 }
 
 void Cache::setCacheLineValid(int idx) {
@@ -215,7 +221,7 @@ int Cache::purge(int index) {
         updateTREE(idx);
         return idx;
     } else {
-        cout << "Error on repalce" << endl;
+        cerr << "Error on repalce" << endl;
         exit(0);
     }
 }
@@ -264,7 +270,7 @@ void Cache::updateTREE(int idx) {
 }
 
 void Cache::print() {
-    cout << "total access: " << this->numAccess << "\n"
+    cerr << "total access: " << this->numAccess << "\n"
          << "hit times   : " << this->numHit << "\n"
          << "purge times : " << this->numPurge << "\n"
          << "miss ratio  : " << 1.0 - (this->numHit + 0.0) / this->numAccess << "\n"

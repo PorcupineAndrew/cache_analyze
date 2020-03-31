@@ -9,6 +9,7 @@
 #include <string.h>
 #include <cstdlib>
 #include <cassert>
+#include <cstdio>
 
 #define POWER2(x) (1ULL << (x))
 
@@ -23,7 +24,7 @@
 #define SETBIT(x, pos) ((x) |= (1ULL << (pos)))
 #define UNSETBIT(x, pos) ((x) &= (~(1ULL << (pos))))
 #define GETBIT(x, pos) (((x) & (1ULL << (pos))) >> (pos))
-#define MASK(bit) ((1U << (bit)) - 1)
+#define MASK(bit) ((1ULL << (bit)) - 1)
 
 #define ADDR_BIT     64
 
@@ -58,6 +59,7 @@ typedef unsigned char cache_line_t[7];
 typedef unsigned char cache_strategy_t;
 typedef unsigned char lru_record_t[3];
 typedef unsigned char tree_record_t;
+typedef unsigned char byte;
 
 using namespace std;
 
