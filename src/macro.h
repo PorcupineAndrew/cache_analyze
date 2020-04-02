@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstdio>
+#include <algorithm>
 
 #include <execinfo.h>
 #include <stdio.h>
@@ -32,7 +33,7 @@
 #define GETBIT(x, pos) (((x) & (1ULL << (pos))) >> (pos))
 #define MASK(bit) ((1ULL << (bit)) - 1)
 
-#define ADDR_BIT     64
+#define ADDR_BIT            64
 
 #define VALID_OFFSET        0
 #define DIRTY_OFFSET        1
