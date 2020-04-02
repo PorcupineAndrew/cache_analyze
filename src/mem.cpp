@@ -1,6 +1,4 @@
 #include "mem.h"
-#include <bitset>
-
 
 Mem::Mem(int nb, int bbw) :
     numBlock(nb), blockBitWidth(bbw) {
@@ -40,12 +38,12 @@ addr_t Mem::getBlock(int idx, int _blockBitWidth) const {
     return buf; 
 }
 
-void print_arr(byte_t *arr) {
-    for (int i = 8; i>=0; i--) {
-        cerr << bitset<8>(arr[i]) << " ";
-    }
-    cerr << endl;
-}
+// void print_arr(byte_t *arr) {
+//     for (int i = 8; i>=0; i--) {
+//         cerr << bitset<8>(arr[i]) << " ";
+//     }
+//     cerr << endl;
+// }
 
 void Mem::setBlock(int idx, addr_t buf, int _blockBitWidth) {
     if (_blockBitWidth == -1) 
@@ -67,25 +65,12 @@ void Mem::setBlock(int idx, addr_t buf, int _blockBitWidth) {
     } else {
         byte_t tmp[9];
         *((addr_t *)tmp) = buf; tmp[8] = 0;
-
-        // cerr << "offset: " << offset << endl;
-        // cerr << bitset<64>(buf) << endl;
-        // cerr << "tmp:\t"; print_arr(tmp);
-        // cerr << "mem:\t"; print_arr(&this->mem[byteStart]);
-
         *((addr_t *)(tmp+1)) <<= offset;
         tmp[1] |= (tmp[0] >> (8-offset));
         tmp[0] <<= offset;
-
-        // cerr << "tmp:\t"; print_arr(tmp);
-
         tmp[0] |= (this->mem[byteStart] & MASK(offset));
-        tmp[8] |= (this->mem[byteEnd] & ~MASK(offset));
+        tmp[8] |= (this->mem[byteEnd] & ~MASK(offset-ADDR_BIT+_blockBitWidth));
         memcpy(&this->mem[byteStart], tmp, 9);
-
-        // cerr << "tmp:\t"; print_arr(tmp);
-        // cerr << "mem:\t"; print_arr(&this->mem[byteStart]);
-        // cerr << endl;
     }
 }
 
@@ -101,6 +86,12 @@ void Mem::test(int nb, int bbw) {
     }
     for (int i = 0; i < size; i++) {
         assert (buf[i] == test.getBlock(i));
+        unsigned int pos = rand()%bbw, prev = test.getBitInBlock(i, pos);
+        if (prev) test.unsetBitInBlock(i, pos);
+        else test.setBitInBlock(i, pos);
+        assert ((1-prev) == test.getBitInBlock(i, pos));
+        if (prev) test.setBitInBlock(i, pos);
+        else test.unsetBitInBlock(i, pos);
     }
     delete [] buf;
     cerr << "Mem IO test passed." << endl;
