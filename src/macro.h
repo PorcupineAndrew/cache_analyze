@@ -28,8 +28,8 @@
 
 #define ADDR_BIT     64
 
-#define VALID_POS    (BITSIZEOF(cache_line_t)-1)
-#define DIRT_POS     (BITSIZEOF(cache_line_t)-2)
+#define VALID_OFFSET        0
+#define DIRTY_OFFSET        1
 
 #define REPLACE_LRU         0U
 #define REPLACE_RAND        1U
@@ -47,18 +47,24 @@
 
 #define LEFT                0
 #define RIGHT               1 
-#define SETLEFT(x, pos) ((x) &= (~(1U << (pos))))
-#define SETRIGHT(x, pos) ((x) |= (1U << (pos)))
-#define ISLEFT(x, pos) ((((x) & (1U << (pos))) >> (pos)) == LEFT)
 
 #define GET_STRATEGY(replace, writeAssign, writeBack) \
     ((cache_strategy_t)(((replace) << REPLACE_POS)) | ((writeBack) << WRITE_BACK_POS) | ((writeAssign) << WRITE_ASSIGN_POS))
 
+#define LRU_RANK(idx) \
+    (this->lruRecords->getBlock((idx), this->numBitWay))
+#define SET_LRU_RANK(idx, buf) \
+    (this->lruRecords->setBlock((idx), (buf), this->numBitWay))
+#define TREE_MARK(idx) \
+    (this->treeRecords->getBitInBlock((idx), 0, 1))
+#define SET_TREE_LEFT(idx) \
+    (this->treeRecords->setBitInBlock((idx), LEFT, 1))
+#define SET_TREE_RIGHT(idx) \
+    (this->treeRecords->setBitInBlock((idx), RIGHT, 1))
+
+
 typedef unsigned long long int addr_t;
-typedef unsigned char cache_line_t[7];
 typedef unsigned char cache_strategy_t;
-typedef unsigned char lru_record_t[3];
-typedef unsigned char tree_record_t;
 typedef unsigned char byte;
 
 using namespace std;

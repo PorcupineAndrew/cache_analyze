@@ -10,15 +10,24 @@ private:
     const int numBitWay;
     const int numBitGroup;
     const int numCacheLine;
+
+    const int& numBitOffset;
+    const int& numBitIndex;
+    const int numBitTag;
+
+    const int validBit;
+    const int dirtyBit;
+
     const cache_strategy_t strategy;
 
     int numHit;
     int numAccess;
     int numPurge;
 
-    cache_line_t *cacheLines = nullptr;
-    lru_record_t *lruRecords = nullptr;
-    tree_record_t *treeRecords = nullptr;
+
+    Mem *cacheLines = nullptr;
+    Mem *lruRecords = nullptr;
+    Mem *treeRecords = nullptr;
 
     void updateCacheLine(int idx, addr_t addr);
 
@@ -40,7 +49,6 @@ private:
     bool isTREE() const;
 
     int purge(int index);
-    unsigned int getLruRank(unsigned int buf, int idx) const;
     void updateLRU(int idx);
     void updateTREE(int idx);
     void hit(int idx);

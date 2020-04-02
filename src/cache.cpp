@@ -2,7 +2,9 @@
 
 Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) : 
     numBitTotoalSize(ts), numBitBlockSize(bs), numBitWay(nw), numBitGroup(ts-bs-nw),
-    numCacheLine(POWER2(ts-bs)), strategy(st), numHit(0), numAccess(0), numPurge(0) {
+    numCacheLine(POWER2(ts-bs)), numBitOffset(numBitBlockSize), numBitIndex(numBitGroup),
+    numBitTag(ADDR_BIT-numBitIndex-numBitOffset), validBit(numBitTag+VALID_OFFSET),
+    dirtyBit(numBitTag+DIRTY_OFFSET), strategy(st), numHit(0), numAccess(0), numPurge(0) {
 
     cerr << "Cache init\n"
          << "--------------------------------\n"
@@ -17,65 +19,46 @@ Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) :
          << "replace algo: " << (isLRU() ? "LRU" : (isRAND() ? "RAND" : "TREE")) << "\n"
          << "--------------------------------" << endl;
 
-    this->cacheLines = new cache_line_t[this->numCacheLine];
-    memset(this->cacheLines, 0, this->numCacheLine*sizeof(cache_line_t));
+    this->cacheLines = new Mem(this->numCacheLine, 2+this->numBitTag);
 
-    if (isLRU()) {
-        this->lruRecords = new lru_record_t[POWER2(this->numBitGroup)];
-        memset(this->lruRecords, 0, POWER2(this->numBitGroup)*sizeof(lru_record_t));
-    }
-    if (isTREE()) {
-        this->treeRecords = new tree_record_t[POWER2(this->numBitGroup)];
-        memset(this->treeRecords, 0, POWER2(this->numBitGroup)*sizeof(tree_record_t));
-    }
-
-    cerr << "addr length : " << ADDR_BIT << "\n"
-         << "valid pos   : " << VALID_POS << "\n"
-         << "dirt pos    : " << DIRT_POS << "\n"
-         << "--------------------------------" << endl;
+    const int numWay = POWER2(this->numBitWay), numGroup = POWER2(this->numBitGroup);
+    if (isLRU())
+        this->lruRecords = new Mem(numGroup, this->numBitWay*numWay); // TODO
+    if (isTREE())
+        this->treeRecords = new Mem(numGroup, numWay-1); // TODO
 }
 
 Cache::~Cache() {
-    delete [] this->cacheLines;
-    if (this->lruRecords) delete [] this->lruRecords;
-    if (this->treeRecords) delete [] this->treeRecords;
+    delete this->cacheLines;
+    if (this->lruRecords) delete this->lruRecords;
+    if (this->treeRecords) delete this->treeRecords;
 }
 
 void Cache::updateCacheLine(int idx, addr_t addr) {
-    const int& offsetLen = this->numBitBlockSize;
-    const int& indexLen = this->numBitGroup;
-
-    addr_t buf = SLICE(addr, offsetLen+indexLen, ADDR_BIT);
-    SETBIT(buf, VALID_POS);
-    memcpy(&this->cacheLines[idx], &buf, sizeof(cache_line_t));
+    addr_t buf = SLICE(addr, this->numBitOffset+this->numBitIndex, ADDR_BIT);
+    SETBIT(buf, this->validBit);
+    this->cacheLines->setBlock(idx, buf);
 }
 
 bool Cache::cacheLineValid(int idx) const {
-    return *(((char*) &this->cacheLines[idx]) + sizeof(cache_line_t) - 1) < 0;
+    return this->cacheLines->getBitInBlock(idx, this->validBit);
 }
 
 bool Cache::cacheLineDirty(int idx) const {
-    return (*(((char*) &this->cacheLines[idx]) + sizeof(cache_line_t) - 1) << 1) < 0;
+    return this->cacheLines->getBitInBlock(idx, this->dirtyBit);
 }
 
 addr_t Cache::getCacheLineTag(int idx) {
-    const int& offsetLen = this->numBitBlockSize;
-    const int& indexLen = this->numBitGroup;
-
-    addr_t buf = 0;
-    memcpy(&buf, &this->cacheLines[idx], sizeof(cache_line_t));
-    return SLICE(buf, 0, ADDR_BIT-offsetLen-indexLen);
+    return SLICE(this->cacheLines->getBlock(idx), 0, this->numBitTag);
 }
 
 int Cache::read(addr_t addr) {
     this->numAccess += 1;
-    const int& offsetLen = this->numBitBlockSize;
-    const int& indexLen = this->numBitGroup;
     const int numWay = POWER2(this->numBitWay);
 
-    unsigned int index = SLICE(addr, offsetLen, offsetLen+indexLen);
+    unsigned int index = SLICE(addr, this->numBitOffset, this->numBitOffset+this->numBitIndex);
     index <<= this->numBitWay;
-    unsigned long long int tag = SLICE(addr, offsetLen+indexLen, ADDR_BIT);
+    addr_t tag = SLICE(addr, this->numBitOffset+this->numBitIndex, ADDR_BIT);
 
     int state = -1;
     for (int i = 0; i < numWay; i++) {
@@ -102,13 +85,11 @@ int Cache::read(addr_t addr) {
 
 int Cache::write(addr_t addr) {
     this->numAccess += 1;
-    const int& offsetLen = this->numBitBlockSize;
-    const int& indexLen = this->numBitGroup;
     const int numWay = POWER2(this->numBitWay);
 
-    unsigned int index = SLICE(addr, offsetLen, offsetLen+indexLen);
+    unsigned int index = SLICE(addr, this->numBitOffset, this->numBitOffset+this->numBitIndex);
     index <<= this->numBitWay;
-    unsigned long long int tag = SLICE(addr, offsetLen+indexLen, ADDR_BIT);
+    addr_t tag = SLICE(addr, this->numBitOffset+this->numBitIndex, ADDR_BIT);
     
     int state = -1;
     for (int i = 0; i < numWay; i++) {
@@ -137,15 +118,15 @@ int Cache::write(addr_t addr) {
 }
 
 void Cache::setCacheLineValid(int idx) {
-    SETBIT(*((addr_t *)&this->cacheLines[idx]), VALID_POS);
+    this->cacheLines->setBitInBlock(idx, this->validBit);
 }
 
 void Cache::unsetCacheLineValid(int idx) {
-    UNSETBIT(*((addr_t *)&this->cacheLines[idx]), VALID_POS);
+    this->cacheLines->unsetBitInBlock(idx, this->validBit);
 }
 
 void Cache::setCacheLineDirty(int idx) {
-    SETBIT(*((addr_t *)&this->cacheLines[idx]), DIRT_POS);
+    this->cacheLines->setBitInBlock(idx, this->dirtyBit);
 }
 
 bool Cache::isWriteAssign() const {
@@ -189,13 +170,11 @@ int Cache::purge(int index) {
     this->numPurge += 1;
     if (isLRU()) {
         const int numWay = POWER2(this->numBitWay);
-        unsigned int buf = 0;
-        memcpy(&buf, &this->lruRecords[index >> this->numBitWay], sizeof(lru_record_t));
 
         int idx = -1, max = 0;
         for (int i = 0; i < numWay; i++) {
             assert (cacheLineValid(index+i));
-            int rank = getLruRank(buf, i);
+            int rank = LRU_RANK(index+i);
             if (rank > max) {
                 max = rank;
                 idx = index+i;
@@ -206,15 +185,14 @@ int Cache::purge(int index) {
         updateLRU(idx);
         return idx;
     } else if (isRAND()) {
-        return index + rand() % POWER2(this->numBitWay);
+        return index + (rand() & MASK(this->numBitWay));
     } else if (isTREE()) {
-        const int numWay = POWER2(this->numBitWay), leafOffset = numWay - 1;
-        unsigned char buf = 0;
-        memcpy(&buf, &this->treeRecords[index >> this->numBitWay], sizeof(tree_record_t));
+        const int numWay = POWER2(this->numBitWay), leafOffset = numWay - 1,
+                treeIndex = index - (index >> this->numBitWay);
 
         int node = 0;
         while (node < leafOffset) {
-            node = (node << 1) + 1 + (ISLEFT(buf, node) ? LEFT : RIGHT);
+            node = (node << 1) + 1 + (TREE_MARK(node+treeIndex) == LEFT ? LEFT : RIGHT);
         }
 
         int idx = node - leafOffset + index;
@@ -227,46 +205,34 @@ int Cache::purge(int index) {
 }
 
 void Cache::updateLRU(int idx) {
-    const int index = (idx >> this->numBitWay) << this->numBitWay, numWay = POWER2(this->numBitWay);
-    unsigned int buf = 0, mask = MASK(this->numBitWay);
-    memcpy(&buf, &this->lruRecords[index >> this->numBitWay], sizeof(lru_record_t));
-
+    const int index = (idx >> this->numBitWay) << this->numBitWay,
+                numWay = POWER2(this->numBitWay);
     unsigned int upperRank = cacheLineValid(idx) ? 
-                            getLruRank(buf, idx-index) : (1U<<this->numBitWay);
+                                LRU_RANK(idx) : (1U<<this->numBitWay);
 
-    for (int i = 0; i < numWay; i++, mask <<= this->numBitWay) {
+    for (int i = 0; i < numWay; i++) {
         if (index+i == idx) {
-            buf &= (~mask);
+            SET_LRU_RANK(idx, 0);
             continue;
         }
-        if (cacheLineValid(index+i) && (getLruRank(buf, i) < upperRank)) {
-            buf += (1U << (this->numBitWay * i));
+        addr_t buf = LRU_RANK(index+i);
+        if (cacheLineValid(index+i) && (buf < upperRank)) {
+            SET_LRU_RANK(index+i, buf+1);
         }
     }
-
-    memcpy(&this->lruRecords[index >> this->numBitWay], &buf, sizeof(lru_record_t));
-}
-
-unsigned int Cache::getLruRank(unsigned int buf, int i) const {
-    int offset =  i*this->numBitWay;
-    unsigned int mask = MASK(this->numBitWay);
-    return (buf & (mask << offset)) >> offset;
 }
 
 void Cache::updateTREE(int idx) {
     const int index = (idx >> this->numBitWay) << this->numBitWay,
             numWay = POWER2(this->numBitWay),
-            leafOffset = numWay - 1;
-    unsigned char buf = 0;
-    memcpy(&buf, &this->treeRecords[index >> this->numBitWay], sizeof(tree_record_t));
+            leafOffset = numWay - 1,
+            treeIndex = index - (index >> this->numBitWay);
 
     idx = idx - index + leafOffset;
     do {
-        if ((idx-1)%2 == LEFT) SETRIGHT(buf, (idx-1)/2);
-        else SETLEFT(buf, (idx-1)/2);
+        if ((idx-1)%2 == LEFT) SET_TREE_RIGHT(treeIndex+(idx-1)/2);
+        else SET_TREE_LEFT(treeIndex+(idx-1)/2);
     } while ((idx=(idx-1)/2));
-
-    memcpy(&this->treeRecords[index >> this->numBitWay], &buf, sizeof(tree_record_t));
 }
 
 void Cache::print() {
