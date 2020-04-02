@@ -4,7 +4,7 @@
 
 class Mem {
 private:
-    byte *mem;
+    byte_t *mem;
     const int numBlock;
     const int blockBitWidth;
 

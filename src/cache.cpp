@@ -17,15 +17,17 @@ Cache::Cache(int ts, int bs, int nw, cache_strategy_t st) :
          << "write direct: " << isWriteDirect() << "\n"
          << "write assign: " << isWriteAssign() << "\n"
          << "replace algo: " << (isLRU() ? "LRU" : (isRAND() ? "RAND" : "TREE")) << "\n"
+         << "tag bitwidth: " << this->numBitTag << "\n"
          << "--------------------------------" << endl;
 
     this->cacheLines = new Mem(this->numCacheLine, 2+this->numBitTag);
+    Mem::test(this->numCacheLine, 2+this->numBitTag);
 
     const int numWay = POWER2(this->numBitWay), numGroup = POWER2(this->numBitGroup);
     if (isLRU())
-        this->lruRecords = new Mem(numGroup, this->numBitWay*numWay); // TODO
+        this->lruRecords = new Mem(numGroup, this->numBitWay*numWay);
     if (isTREE())
-        this->treeRecords = new Mem(numGroup, numWay-1); // TODO
+        this->treeRecords = new Mem(numGroup, numWay-1);
 }
 
 Cache::~Cache() {
@@ -175,7 +177,7 @@ int Cache::purge(int index) {
         for (int i = 0; i < numWay; i++) {
             assert (cacheLineValid(index+i));
             int rank = LRU_RANK(index+i);
-            if (rank > max) {
+            if (rank >= max) {
                 max = rank;
                 idx = index+i;
             }

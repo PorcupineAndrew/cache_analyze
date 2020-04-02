@@ -11,6 +11,12 @@
 #include <cassert>
 #include <cstdio>
 
+#include <execinfo.h>
+#include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #define POWER2(x) (1ULL << (x))
 
 #define STREAM_ADDR(x) \
@@ -65,7 +71,7 @@
 
 typedef unsigned long long int addr_t;
 typedef unsigned char cache_strategy_t;
-typedef unsigned char byte;
+typedef unsigned char byte_t;
 
 using namespace std;
 
