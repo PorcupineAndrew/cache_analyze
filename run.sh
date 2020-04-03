@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script for Exp1
-# * Last change   : 01:16:38 2020-04-03
+# * Last change   : 18:32:40 2020-04-03
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : www.opensource.org/licenses/bsd-license.php
@@ -36,13 +36,13 @@ run_cache_arangement()
                 [ -e "$output_path" ] && continue
                 echo -e "run for $output_path"
                 ./bin/cache_analyze \
-                    --input_file        "$input_file" \
-                    --output_file       "$output_file" \
+                    --input_file        "$input_path" \
+                    --output_file       "$output_path" \
                     --cache_size_bit    17 \
                     --block_size_bit    "$block" \
                     --way_size_bit      "$way"\
                     --replace_algo      lru \
-                    --write_assgin  --write_back &
+                    --write_assign  --write_back &
             done < <(echo -e $LIST_WAY)
         done < <(echo -e $LIST_BLOCK)
     done < <(echo -e $LIST_DATA)
@@ -57,13 +57,13 @@ run_cache_replacement() {
             [ -e "$output_path" ] && continue
             echo -e "run for $output_path"
             ./bin/cache_analyze \
-                --input_file        "$input_file" \
-                --output_file       "$output_file" \
+                --input_file        "$input_path" \
+                --output_file       "$output_path" \
                 --cache_size_bit    17 \
                 --block_size_bit    3 \
                 --way_size_bit      3 \
                 --replace_algo      "$algo" \
-                --write_assgin  --write_back &
+                --write_assign  --write_back &
         done < <(echo -e $LIST_ALGO)
     done < <(echo -e $LIST_DATA)
     wait
@@ -78,8 +78,8 @@ run_cache_write_strategy() {
             [ -e "$output_path" ] && continue
             echo -e "run for $output_path"
             ./bin/cache_analyze \
-                --input_file        "$input_file" \
-                --output_file       "$output_file" \
+                --input_file        "$input_path" \
+                --output_file       "$output_path" \
                 --cache_size_bit    17 \
                 --block_size_bit    3 \
                 --way_size_bit      3 \

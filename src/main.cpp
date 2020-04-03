@@ -47,14 +47,14 @@ int main(int argc, char** argv) {
            replaceAlgo  = getCmdOption(argv, argv+argc, "--replace_algo") == "lru" ?
                         REPLACE_LRU : (getCmdOption(argv, argv+argc, "--replace_algo") == "rand" ?
                         REPLACE_RAND : REPLACE_TREE),
-           writeAssign  = cmdOptionExists(argv, argv+argc, "--write_assgin") ?
+           writeAssign  = cmdOptionExists(argv, argv+argc, "--write_assign") ?
                         WRITE_ASSIGN : WRITE_NO_ASSIGN,
            writeBack    = cmdOptionExists(argv, argv+argc, "--write_back") ?
                         WRITE_BACK : WRITE_DIRECT;
 
     ifstream inFile (fName);
     if (freopen(oName.c_str(), "w", stdout) == NULL) {
-        cerr << "fail to redirect stdout" << endl;
+        cerr << "fail to redirect stdout: " << oName << endl;
         exit(1);
     }
 
