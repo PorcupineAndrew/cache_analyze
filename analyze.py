@@ -2,7 +2,7 @@
 #-*- coding: utf-8 -*-
 # **********************************************************************
 # * Description   : analyze for result
-# * Last change   : 22:10:46 2020-04-04
+# * Last change   : 21:10:00 2020-04-05
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : www.opensource.org/licenses/bsd-license.php
@@ -47,7 +47,10 @@ list_write = [0, 1]
 
 def bar_on_metrc(ax, df, comb, metric):
     data = df.loc[np.logical_and.reduce([df[k] == v for k,v in comb.items()])]
-    metric_values = np.sort(np.unique(list(map(tuple, data[metric].values.tolist())), axis=0))
+    data["miss_ratio"] = data.miss / (data.miss + data.hit)
+    data.sort_values(by=list(data.columns), inplace=True)
+    print(data)
+    metric_values = np.unique(data[metric].values.tolist(), axis=0)
 
     ax.set_title(f"Miss ratio on '{'&'.join(metric)}'\n{comb}")
     ax.grid(True)
@@ -59,7 +62,7 @@ def bar_on_metrc(ax, df, comb, metric):
         m = list(zip(metric, v))
         d = data.loc[np.logical_and.reduce([data[i] == j for i,j in m])].sort_values(by=["trace"])
         X = np.arange(len(d.trace)) - ((len(metric_values)-1)/2-idx)*bar_width
-        ax.bar(X, d.miss/d.hit, label=f"{'&'.join([f'{i}={j}' for i,j in m])}", width=bar_width, linewidth=0, alpha=0.5)
+        ax.bar(X, d.miss_ratio, label=f"{'&'.join([f'{i}={j}' for i,j in m])}", width=bar_width, linewidth=0, alpha=0.5)
 
     ax.set_xticks(np.arange(len(d.trace)))
     ax.set_xticklabels(d.trace)
